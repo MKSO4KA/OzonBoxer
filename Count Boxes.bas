@@ -3,6 +3,7 @@ Sub CreateAndFormatSheets()
     Dim lastRow As Long, maxValue As Long, i As Long
     Dim data As Variant, resultData() As Variant
     Dim countDict As Object
+    
 
     Application.DisplayAlerts = False
     ' ???????? ???? ??????, ????? ???????
@@ -22,20 +23,20 @@ Sub CreateAndFormatSheets()
 
     ' ?????????? ??????? ??? ???????? ????????
     Set countDict = CreateObject("Scripting.Dictionary")
-
+    Dim ind As Long: ind = 0
     ' ????????? ?????? ? ?????????? ???????
     For i = 1 To lastRow
-        If InStr(data(i, 1), "-") > 0 And Not data(i, 1) Like "*[a-zA-Z]*" Then
+        If InStr(data(i, 1), "-") > 0 And Not data(i, 1) Like "*[a-zA-Zа-яА-Я]*" Then
             Dim splitData As Variant
             splitData = Split(data(i, 1), "-")
             Dim key As Long: key = CLng(Trim(splitData(0)))
             Dim value As Long: value = CLng(Trim(splitData(1)))
-
+            
             If key < 700 Then
                 If Not countDict.Exists(key) Then
-                    countDict(key) = value
+                    countDict(key) = 1
                 Else
-                    countDict(key) = Application.WorksheetFunction.Max(countDict(key), value)
+                    countDict(key) = countDict(key) + 1
                 End If
                 maxValue = Application.WorksheetFunction.Max(maxValue, key)
             End If
@@ -102,4 +103,104 @@ Sub CreateAndFormatSheets()
     Application.DisplayAlerts = True
 
 End Sub
+Sub DeleteLists()
+    Application.DisplayAlerts = False
+    If ThisWorkbook.Sheets.count > 2 Then
+        For i = ThisWorkbook.Sheets.count To 3 Step -1
+            ThisWorkbook.Sheets(i).Delete
+        Next i
+    End If
+    Application.DisplayAlerts = True
+End Sub
+Sub SearchElement()
+    Dim arr As Variant
+    Dim SearchElement As Variant
+    Dim foundCell As Range
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long, c As Long
+    Dim dataRange As Range
+    Dim dataArr As Variant
+
+    ' Set the search element (e.g., 44)
+    SearchElement = InputBox("Enter the element to search for:", "Search Element")
+
+    Application.DisplayAlerts = False
+    On Error Resume Next
+    ThisWorkbook.Worksheets(SearchElement).Delete
+    On Error GoTo 0
+    Application.DisplayAlerts = True
+
+    ' Set the worksheet to search (e.g., "Sheet1")
+    Set ws = ThisWorkbook.Worksheets(2)
+
+    ' Set the range to search (e.g., column A)
+    Set foundCell = ws.Range("A:A").Find(what:=SearchElement, lookat:=xlWhole)
+
+    ' Check if the element was found
+    If foundCell Is Nothing Then
+        MsgBox "Element " & SearchElement & " not found"
+        Exit Sub
+    End If
+
+    Set ws = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Worksheets(2))
+    ws.Name = SearchElement
+
+    lastRow = ThisWorkbook.Sheets(1).Cells(ThisWorkbook.Sheets(1).Rows.count, 12).End(xlUp).Row
+    Set dataRange = ThisWorkbook.Sheets(1).Range(ThisWorkbook.Sheets(1).Cells(1, 12), ThisWorkbook.Sheets(1).Cells(lastRow, 12))
+    
+    ' Load data into an array for faster processing
+    dataArr = dataRange.value
+    c = 0
+
+    For i = 1 To UBound(dataArr, 1)
+        ' Check if the cell value contains the search value
+        If dataArr(i, 1) Like SearchElement & "-*" Then
+            c = c + 1
+            arr = Split(dataArr(i, 1), "-")
+            With ws.Cells(arr(1) + 1, 1)
+                .NumberFormat = "@"
+                .value = dataArr(i, 1)
+            End With
+            With ws.Cells(arr(1) + 1, 2)
+                .value = ThisWorkbook.Sheets(1).Cells(i, 7).value ' Adjusted to -5 offset
+                .NumberFormat = "_-*  #,##0.00 ???"
+            End With
+            With ws.Cells(arr(1) + 1, 3)
+                .value = ThisWorkbook.Sheets(1).Cells(i, 5).value ' Adjusted to -7 offset
+                .NumberFormat = "00000000-0000"
+            End With
+            With ws.Cells(arr(1) + 1, 4)
+                .NumberFormat = "@"
+                .value = Split(ThisWorkbook.Sheets(1).Cells(i, 9).value, " ")(0) ' Adjusted to -3 offset
+            End With
+            With ws.Cells(arr(1) + 1, 5)
+                .NumberFormat = "@"
+                .value = "Отправлен"
+                .Interior.Color = RGB(255, 127, 80)
+
+                If Not ThisWorkbook.Sheets(1).Cells(i, 13) Like "*[0-9]*" Then
+                    .Interior.Color = RGB(255, 255, 0)
+                    .value = Split(ThisWorkbook.Sheets(1).Cells(i, 3).value, " ")(0)
+                ElseIf ThisWorkbook.Sheets(1).Cells(i, 13) Like "*[0-9]*" And Not ThisWorkbook.Sheets(1).Cells(i, 11) Like "*[0-9]*" Then
+                    .Interior.Color = RGB(220, 20, 60)
+                    .value = Split(ThisWorkbook.Sheets(1).Cells(i, 3).value, " ")(0)
+                End If
+            End With
+            
+            If foundCell.Offset(0, 1) = c Then Exit For
+        End If
+    Next i
+
+    ' Remove empty rows in reverse order
+    For i = ws.Cells(ws.Rows.count, 4).End(xlUp).Row To 2 Step -1
+        If ws.Cells(i, 1).value = "" Then ws.Rows(i).Delete Shift:=xlUp
+    Next i
+
+    ' Set headers and autofit columns
+    ws.Cells(1, 1).Resize(1, 5).value = Array("Item", "Cost", "User Identifier", "Payment Method", "Status")
+    ws.Cells(1, 6).value = c
+    ws.Columns("B:E").AutoFit
+End Sub
+
 
