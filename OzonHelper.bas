@@ -1,4 +1,4 @@
-Attribute VB_Name = "Module11"
+Attribute VB_Name = "OzonHelper"
 Sub CreateAndFormatSheets()
     Dim ws1 As Worksheet, ws2 As Worksheet, ws3 As Worksheet, ws4 As Worksheet
     Dim lastRow As Long, maxValue As Long, i As Long
@@ -17,7 +17,7 @@ Sub CreateAndFormatSheets()
 
     Set ws1 = ThisWorkbook.Sheets(1)
     Set ws2 = ThisWorkbook.Sheets.Add(After:=ws1)
-    ws2.Name = "Sheet2"
+    ws2.name = "Sheet2"
 
     lastRow = ws1.Cells(ws1.Rows.count, "L").End(xlUp).Row
     data = ws1.Range("L1:L" & lastRow).value
@@ -46,7 +46,7 @@ Sub CreateAndFormatSheets()
 
     ' ?????????? Sheet3
     Set ws3 = ThisWorkbook.Sheets.Add(After:=ws2)
-    ws3.Name = "Sheet3"
+    ws3.name = "Sheet3"
     maxValue = maxValue + 1
     ReDim resultData(1 To maxValue, 1 To 2)
 
@@ -67,7 +67,7 @@ Sub CreateAndFormatSheets()
 
     ' ???????? Summary Sheet
     Set ws4 = ThisWorkbook.Sheets.Add(After:=ws3)
-    ws4.Name = "Summary"
+    ws4.name = "Summary"
     
     ws3.UsedRange.Copy
     ws4.Range("A1").PasteSpecial Paste:=xlPasteValues
@@ -120,6 +120,69 @@ Function IsSearchElementValid(SearchElement As Variant) As Boolean
         IsSearchElementValid = False
     End If
 End Function
+Function InsertCodeIntoSheet(name As String)
+    Dim ws As Worksheet
+    Dim code As String
+    Dim vbComp As Object
+
+    ' ??????? ??? ?????, ???? ?? ?????? ???????? ???
+    Set ws = ThisWorkbook.Sheets(name) ' ???????? ?? ??? ?????? ?????
+
+    ' ???, ??????? ????? ???????? ? ?????? ?????
+    code = "Private Sub Worksheet_SelectionChange(ByVal Target As Range)" & vbCrLf & _
+           "    Dim chromePath As String" & vbCrLf & _
+           "    Dim url As String" & vbCrLf & vbCrLf & _
+           "    ' ??????? ???? ? ???????????? ????? Google Chrome" & vbCrLf & _
+           "    chromePath = ""C:\Program Files\Google\Chrome\Application\chrome.exe""" & vbCrLf & vbCrLf & _
+           "    ' ?????????, ??????? ?? ?????? ? ??????? ?" & vbCrLf & _
+           "    If Not Intersect(Target, Me.Columns(""H"")) Is Nothing Then" & vbCrLf & _
+           "        ' ???????? URL ?? ????????? ??????" & vbCrLf & _
+           "        url = Target.Value" & vbCrLf & vbCrLf & _
+           "        ' ????????? URL ? Google Chrome" & vbCrLf & _
+           "        Shell """" & chromePath & """" & "" --new-tab """" & url & """" , vbNormalFocus" & vbCrLf & _
+           "    End If" & vbCrLf & _
+           "End Sub"
+
+    ' ???????? ????????? VBA ??? ?????
+    Set vbComp = ThisWorkbook.VBProject.VBComponents(ws.CodeName)
+
+    ' ????????? ??? ? ?????? ?????
+    vbComp.CodeModule.InsertLines 1, code
+End Function
+Sub AddButtonInCell(cell As Range, ws As Worksheet)
+    Dim btn As Object
+    Dim value As String
+    value = "123"
+    btnName = "Button_" & CStr(cell.Row)
+    ' ??????? ??????, ???? ??? ??? ??????????
+    On Error Resume Next
+    ws.Shapes("").Delete ' ?????????? ??????????? ??? ??????
+    On Error GoTo 0
+    
+    ' ????????? ????? ??????
+    Set btn = ws.Shapes.AddFormControl(xlButtonControl, cell.Left, cell.Top, cell.Width, cell.Height)
+    With btn
+        .name = btnName
+        .OnAction = "RunMyMacro"
+    End With
+End Sub
+
+Sub RunMyMacro()
+    Dim regEx As Object
+    Set regEx = CreateObject("VBScript.RegExp")
+    Dim ws As Worksheet
+    Dim chromePath As String
+    chromePath = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+    With regEx
+        .Global = True
+        .IgnoreCase = True
+        .Pattern = "[^0-9]"
+    End With
+    Set ws = ThisWorkbook.Sheets(ActiveSheet.name)
+    url = ws.Cells(regEx.Replace(CStr(Application.Caller), ""), 15)
+    'MsgBox "Button Pressed. Value: " & url
+    Shell """" & chromePath & """ --new-tab """ & url & """", vbNormalFocus
+End Sub
 Function FindNumber(SearchElement As Variant, ListName As String, Optional ByVal c As Long = 1) As Variant
     Dim arr As Variant
     Dim foundCell As Range
@@ -129,10 +192,12 @@ Function FindNumber(SearchElement As Variant, ListName As String, Optional ByVal
     Dim dataRange As Range
     Dim dataArr As Variant
     Set ws = ThisWorkbook.Worksheets(2)
+    Dim url As String
+    url = "https://turbo-pvz.ozon.ru/search?filter=%7B%22search%22%3A%22"
 
     ' Set the range to search (e.g., column A)
     Set foundCell = ws.Range("A:A").Find(what:=SearchElement, lookat:=xlWhole)
-    Set ws = ThisWorkbook.Worksheets(CStr(ListName))
+    
     ' Check if the element was found
     If foundCell Is Nothing Then
         If Len(SearchElement) < 6 Then
@@ -140,7 +205,7 @@ Function FindNumber(SearchElement As Variant, ListName As String, Optional ByVal
             Exit Function
         End If
     End If
-
+    Set ws = ThisWorkbook.Worksheets(CStr(ListName))
     
 
     lastRow = ThisWorkbook.Sheets(1).Cells(ThisWorkbook.Sheets(1).Rows.count, 12).End(xlUp).Row
@@ -183,6 +248,8 @@ Function FindNumber(SearchElement As Variant, ListName As String, Optional ByVal
                 End If
             End With
             
+                
+            
             Dim exampleString As String
             exampleString = ThisWorkbook.Sheets(1).Cells(i, 4).value ' ????????????, ??? i ??? ?????????
             
@@ -200,46 +267,96 @@ Function FindNumber(SearchElement As Variant, ListName As String, Optional ByVal
             ' ?????? ??, ??? ??????? ??? ?????? ????????
                     ws.Hyperlinks.Add Anchor:=ws.Cells(c + 1, 6), _
                       Address:="", _
-                      SubAddress:="'" & ThisWorkbook.Sheets(1).Name & "'!" & ThisWorkbook.Sheets(1).Cells(i, 4).Address, _
+                      SubAddress:="'" & ThisWorkbook.Sheets(1).name & "'!" & ThisWorkbook.Sheets(1).Cells(i, 4).Address, _
                       TextToDisplay:=splitValues(0)
+                      url = url & Trim(splitValues(0)) & "%22" & "%7D"
                 Case 2
             ' ?????????? ??? ???????? ????? ??????
                     result = splitValues(0) & " " & splitValues(1)
                     ws.Hyperlinks.Add Anchor:=ws.Cells(c + 1, 6), _
                       Address:="", _
-                      SubAddress:="'" & ThisWorkbook.Sheets(1).Name & "'!" & ThisWorkbook.Sheets(1).Cells(i, 4).Address, _
+                      SubAddress:="'" & ThisWorkbook.Sheets(1).name & "'!" & ThisWorkbook.Sheets(1).Cells(i, 4).Address, _
                       TextToDisplay:=result
+                      url = url & Trim(splitValues(UBound(splitValues))) & "%22" & "%7D"
                 Case Else
             ' ?????????? ??? ???????? ????? ??????
                     result = splitValues(0) & " " & splitValues(1) & " " & splitValues(2)
                     ws.Hyperlinks.Add Anchor:=ws.Cells(c + 1, 6), _
                       Address:="", _
-                      SubAddress:="'" & ThisWorkbook.Sheets(1).Name & "'!" & ThisWorkbook.Sheets(1).Cells(i, 4).Address, _
+                      SubAddress:="'" & ThisWorkbook.Sheets(1).name & "'!" & ThisWorkbook.Sheets(1).Cells(i, 4).Address, _
                       TextToDisplay:=result
+                    url = url & Trim(splitValues(UBound(splitValues))) & "%22" & "%7D"
             End Select
-            c = c + 1
-        
+            With ws.Cells(c + 1, 15)
+                .NumberFormat = "@"
+                .value = CStr(url)
+                .Font.Color = RGB(255, 255, 255)
+            End With
+            ws.Columns("H").ColumnWidth = 20
+            AddButtonInCell ws.Cells(c + 1, 8), ws
             
+            
+            c = c + 1
+            
+            
+            
+            'ws.Hyperlinks.Add Anchor:=ws.Cells(c, 7), _
+            '    Address:=url, _
+            '    TextToDisplay:="На сайт!"
+            'InsertCodeIntoSheet (CStr(ListName))
             If foundCell.Offset(0, 1) = c - 1 Then
             Exit For
             End If
             
         End If
-        
+        url = "https://turbo-pvz.ozon.ru/search?filter=%7B%22search%22%3A%22"
     Next i
     FindNumber = c
 End Function
+Function Trim(inputVar As Variant) As String
+    Dim regEx As Object
+    Dim inputString As String
+    inputString = CStr(inputVar)
+    Set regEx = CreateObject("VBScript.RegExp")
+    
+    ' Убираем пробелы
+    inputString = Replace(inputString, " ", "")
+    
+    ' Настраиваем регулярное выражение для удаления недопустимых символов
+    With regEx
+        .Global = True
+        .IgnoreCase = True
+        ' Разрешаем только цифры и букву 'i' в нижнем регистре
+        .Pattern = "[^0-9i-]"
+    End With
+    
+    ' Заменяем все недопустимые символы на пустую строку
+    Trim = regEx.Replace(inputString, "")
+    
+    ' Удаляем все заглавные 'I'
+    Trim = Replace(Trim, "I", "")
+End Function
 Sub searchNumber(ByVal SearchElements As Variant, Optional ByVal ListName As Variant = "")
-    Dim SearchElement As Variant
+    Dim SearchElement, StartElement As Variant
     Dim i, c, d As Long
     Dim ws As Worksheet
     Dim count As Long
     c = 0
     count = 1
-    d = SearchElements(UBound(SearchElements))
+    If Len(SearchElements(0)) > 6 Then
+        d = FindNumByUserId(SearchElements(0))
+    Else
+        d = SearchElements(UBound(SearchElements))
+    End If
+    
     ' Set the search element (e.g., 44)
     If ListName = "" Then
-        SearchElement = SearchElements(0)
+        
+        If Len(SearchElements(0)) > Len(d) Then
+            SearchElement = d
+        Else
+            SearchElement = SearchElements(0)
+        End If
         ListName = SearchElement
         count = FindNumber(SearchElement, CStr(ListName))
     Else
@@ -264,9 +381,11 @@ Sub searchNumber(ByVal SearchElements As Variant, Optional ByVal ListName As Var
     ws.Cells(1, 8).Font.Size = 30
     ws.Cells(1, 7).Font.Size = 30
     ws.Cells(1, 7).Interior.Color = RGB(220, 220, 100)
-    ws.Columns("B:H").AutoFit
-    ws.Cells.VerticalAlignment = xlVAlignTop
+    ws.Columns("B:G").AutoFit
+    ws.Rows.RowHeight = 30
+    ws.Cells.VerticalAlignment = xlVAlignCenter
     ws.Cells.HorizontalAlignment = xlHAlignCenter
+    ws.Columns("H").ColumnWidth = 20
 End Sub
 Function FindNumByUserId(SearchElement As Variant) As Variant
     Dim ws As Worksheet
@@ -343,7 +462,7 @@ Sub SearchElement2()
         On Error GoTo 0
         Application.DisplayAlerts = True
         Set ws = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Worksheets(2))
-        ws.Name = Element
+        ws.name = Element
         If Element Like "*-*" Then
             searchNumber CreateArrayFromStroke(CStr(Element)), CStr(Element)
         Else
@@ -352,7 +471,8 @@ Sub SearchElement2()
         
         ws.Cells(1, 7).NumberFormat = "@"
         ws.Cells(1, 7) = CStr(Element)
-        ws.Columns("B:H").AutoFit
+        ws.Columns("B:G").AutoFit
+        ws.Columns("H").ColumnWidth = 20
     Else
         result = FindNumByUserId(Element)
         If result = -1 Then
@@ -366,11 +486,82 @@ Sub SearchElement2()
         On Error GoTo 0
         Application.DisplayAlerts = True
         Set ws = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Worksheets(2))
-        ws.Name = Element
+        ws.name = Element
         searchNumber (Array(Element))
     End If
     Next i
 End Sub
+Sub SortSheetsByFirstNumberInNameSkippingFirstTwo()
+    Dim ws As Worksheet
+    Dim sheetNames As Collection
+    Dim sortedNames() As String
+    Dim i As Long
+    Dim j As Long
+    Dim temp As String
+    Dim n As Long
+
+    ' ??????? ????????? ??? ???????? ???? ??????
+    Set sheetNames = New Collection
+    
+    ' ????????? ????? ?????? ? ?????????, ??????? ? ????????
+    For i = 3 To ThisWorkbook.Sheets.count
+        sheetNames.Add ThisWorkbook.Sheets(i).name
+    Next i
+    
+    ' ???????? ?????????? ?????? ??? ??????????
+    n = sheetNames.count
+    
+    ' ??????? ?????? ??? ???????? ??????????????? ????
+    ReDim sortedNames(1 To n)
+    
+    ' ???????? ????? ? ??????
+    For i = 1 To n
+        sortedNames(i) = sheetNames(i)
+    Next i
+    
+    ' ?????????? ????????? ?? ??????? ????? ? ????? ?????
+    For i = 1 To n - 1
+        For j = i + 1 To n
+            If GetFirstNumber(sortedNames(i)) > GetFirstNumber(sortedNames(j)) Then
+                ' ?????? ??????? ?????
+                temp = sortedNames(i)
+                sortedNames(i) = sortedNames(j)
+                sortedNames(j) = temp
+            End If
+        Next j
+    Next i
+    
+    ' ?????????? ????? ? ??????????????? ???????
+    For i = 1 To n
+        ThisWorkbook.Sheets(sortedNames(i)).Move After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.count)
+    Next i
+    ActivateSheetIfExists (1)
+    ActivateSheetIfExists (3)
+End Sub
+Function ActivateSheetIfExists(sheetId As Integer)
+    Dim ws As Worksheet
+    
+    ' ?????????, ?????????? ?? ?????? ????
+    If ThisWorkbook.Sheets.count >= sheetId Then
+        ' ????????????? ?????? ???? ??? ????????
+        Set ws = ThisWorkbook.Sheets(sheetId)
+        ws.Activate
+    End If
+End Function
+Function GetFirstNumber(sheetName As String) As Double
+    Dim numbers() As String
+    Dim num As Double
+    
+    ' ????????? ??? ????? ?? ??????? "-" ? ????? ?????? ?????
+    If InStr(sheetName, "-") > 0 Then
+        numbers = Split(sheetName, "-")
+        num = Val(numbers(0))
+    Else
+        num = Val(sheetName)
+    End If
+    
+    GetFirstNumber = num
+End Function
 Sub SearchElement()
     Dim Element, result As Variant
     Dim ws As Worksheet
@@ -383,7 +574,7 @@ Sub SearchElement()
         On Error GoTo 0
         Application.DisplayAlerts = True
         Set ws = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Worksheets(2))
-        ws.Name = Element
+        ws.name = Element
         If Element Like "*-*" Then
             searchNumber CreateArrayFromStroke(CStr(Element)), CStr(Element)
         Else
@@ -392,7 +583,8 @@ Sub SearchElement()
         
         ws.Cells(1, 7).NumberFormat = "@"
         ws.Cells(1, 7) = CStr(Element)
-        ws.Columns("B:H").AutoFit
+        ws.Columns("B:G").AutoFit
+        ws.Columns("H").ColumnWidth = 20
     Else
         result = FindNumByUserId(Element)
         If result = -1 Then
@@ -402,11 +594,15 @@ Sub SearchElement()
         
         Application.DisplayAlerts = False
         On Error Resume Next
-        ThisWorkbook.Worksheets(Element).Delete
+        ThisWorkbook.Worksheets(result).Delete
         On Error GoTo 0
         Application.DisplayAlerts = True
         Set ws = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Worksheets(2))
-        ws.Name = Element
-        searchNumber (Array(Element))
+        ws.name = result
+        searchNumber (Array(result))
+        ws.Cells(1, 7).NumberFormat = "@"
+        ws.Cells(1, 7) = CStr(result)
+        ws.Columns("B:G").AutoFit
+        ws.Columns("H").ColumnWidth = 20
     End If
 End Sub
